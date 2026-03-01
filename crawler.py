@@ -12,6 +12,7 @@ SEEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seen_posts
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 CONTENT_MAX_LEN = 200
 SEEN_MAX_PER_BOARD = 200
+PAGES_PER_BOARD = 3
 
 BOARD_LABELS = {
     "kstartup": "스타트업 지원사업",
@@ -35,22 +36,29 @@ def save_seen(seen):
 
 
 def crawl_board(board_name, url):
-    resp = requests.get(url, timeout=15)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-
     posts = []
-    for row in soup.select(".bl-list"):
-        if "bl-notice" in row.get("class", []):
-            continue
-        link_tag = row.select_one(".bl-subj a")
-        if not link_tag:
-            continue
-        href = link_tag.get("href", "")
-        if not href.startswith("http"):
-            href = f"https://seenthis.kr{href}"
-        title = link_tag.get_text(strip=True)
-        posts.append({"board": board_name, "title": title, "url": href})
+    seen_urls = set()
+    for page in range(1, PAGES_PER_BOARD + 1):
+        page_url = f"{url}?page={page}"
+        resp = requests.get(page_url, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        for row in soup.select(".bl-list"):
+            if "bl-notice" in row.get("class", []):
+                continue
+            link_tag = row.select_one(".bl-subj a")
+            if not link_tag:
+                continue
+            href = link_tag.get("href", "")
+            if not href.startswith("http"):
+                href = f"https://seenthis.kr{href}"
+            href = href.split("?")[0]
+            if href in seen_urls:
+                continue
+            seen_urls.add(href)
+            title = link_tag.get_text(strip=True)
+            posts.append({"board": board_name, "title": title, "url": href})
     return posts
 
 
