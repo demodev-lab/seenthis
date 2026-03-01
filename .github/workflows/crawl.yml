@@ -11,18 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip3 install -r requirements.txt
 
       - name: Run crawler
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: python crawler.py
+        run: python3 crawler.py
 
       - name: Commit seen_posts.json
         run: |
