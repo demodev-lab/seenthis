@@ -2,6 +2,9 @@ import json
 import os
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BOARDS = {
     "kstartup": "https://seenthis.kr/kstartup",
@@ -84,17 +87,27 @@ def send_slack(posts):
         print("[SKIP] SLACK_WEBHOOK_URL not set")
         return
 
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"새 공고 {len(posts)}건",
+            },
+        },
+    ]
+
     for post in posts:
         label = BOARD_LABELS.get(post["board"], post["board"])
-        blocks = [
+        blocks.append(
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": f"*[{label}]*\n<{post['url']}|{post['title']}>",
                 },
-            },
-        ]
+            }
+        )
         if post.get("content"):
             blocks.append(
                 {
@@ -104,15 +117,21 @@ def send_slack(posts):
                     ],
                 }
             )
-        payload = {
-            "text": f"[{label}] {post['title']}",
-            "blocks": blocks,
-        }
-        resp = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
-        if resp.status_code != 200:
-            print(f"[ERROR] Slack send failed ({resp.status_code}): {resp.text}")
-        else:
-            print(f"[SENT] {post['title']}")
+        blocks.append({"type": "divider"})
+
+    if blocks and blocks[-1].get("type") == "divider":
+        blocks.pop()
+
+    fallback = ", ".join(p["title"] for p in posts[:5])
+    payload = {
+        "text": f"새 공고 {len(posts)}건: {fallback}",
+        "blocks": blocks,
+    }
+    resp = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+    if resp.status_code != 200:
+        print(f"[ERROR] Slack send failed ({resp.status_code}): {resp.text}")
+    else:
+        print(f"[SENT] {len(posts)}건 일괄 전송 완료")
 
 
 def main():
